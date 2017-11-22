@@ -13,7 +13,7 @@ class ECommAlgorithmTest
   val algorithmParams = new ECommAlgorithmParams(
     appName = "test-app",
     unseenOnly = true,
-    seenEvents = List("buy", "view"),
+    seenEvents = List("like", "view"),
     similarEvents = List("view"),
     rank = 10,
     numIterations = 20,
@@ -47,10 +47,10 @@ class ECommAlgorithmTest
     ViewEvent("u1", "i2", 1000040)
   )
 
-  val buy = Seq(
-    BuyEvent("u0", "i0", 1000020),
-    BuyEvent("u0", "i1", 1000030),
-    BuyEvent("u1", "i1", 1000040)
+  val like = Seq(
+    LikeEvent("u0", "i0", 1000020),
+    LikeEvent("u0", "i1", 1000030),
+    LikeEvent("u1", "i1", 1000040)
   )
 
 
@@ -60,7 +60,7 @@ class ECommAlgorithmTest
       users = sc.parallelize(users.toSeq),
       items = sc.parallelize(items.toSeq),
       viewEvents = sc.parallelize(view.toSeq),
-      buyEvents = sc.parallelize(buy.toSeq)
+      likeEvents = sc.parallelize(like.toSeq)
     )
 
     val mllibRatings = algorithm.genMLlibRating(
@@ -84,7 +84,7 @@ class ECommAlgorithmTest
       users = sc.parallelize(users.toSeq),
       items = sc.parallelize(items.toSeq),
       viewEvents = sc.parallelize(view.toSeq),
-      buyEvents = sc.parallelize(buy.toSeq)
+      likeEvents = sc.parallelize(like.toSeq)
     )
 
     val popCount = algorithm.trainDefault(

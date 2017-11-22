@@ -23,10 +23,10 @@ class PreparatorTest
     ViewEvent("u1", "i1", 1000030)
   )
 
-  val buy = Seq(
-    BuyEvent("u0", "i0", 1000020),
-    BuyEvent("u0", "i1", 1000030),
-    BuyEvent("u1", "i1", 1000040)
+  val like = Seq(
+    LikeEvent("u0", "i0", 1000020),
+    LikeEvent("u0", "i1", 1000030),
+    LikeEvent("u1", "i1", 1000040)
   )
 
   // simple test for demonstration purpose
@@ -36,7 +36,7 @@ class PreparatorTest
       users = sc.parallelize(users.toSeq),
       items = sc.parallelize(items.toSeq),
       viewEvents = sc.parallelize(view.toSeq),
-      buyEvents = sc.parallelize(buy.toSeq)
+      likeEvents = sc.parallelize(like.toSeq)
     )
 
     val preparedData = preparator.prepare(sc, trainingData)
@@ -44,6 +44,6 @@ class PreparatorTest
     preparedData.users.collect should contain theSameElementsAs users
     preparedData.items.collect should contain theSameElementsAs items
     preparedData.viewEvents.collect should contain theSameElementsAs view
-    preparedData.buyEvents.collect should contain theSameElementsAs buy
+    preparedData.likeEvents.collect should contain theSameElementsAs like
   }
 }

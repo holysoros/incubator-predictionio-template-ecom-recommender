@@ -61,7 +61,7 @@ class DataSource(val dsp: DataSourceParams)
     val eventsRDD: RDD[Event] = PEventStore.find(
       appName = dsp.appName,
       entityType = Some("user"),
-      eventNames = Some(List("view", "buy")),
+      eventNames = Some(List("view", "like")),
       // targetEntityType is optional field of an event.
       targetEntityType = Some(Some("item")))(sc)
       .cache()
@@ -83,18 +83,18 @@ class DataSource(val dsp: DataSourceParams)
         }
       }
 
-    val buyEventsRDD: RDD[BuyEvent] = eventsRDD
-      .filter { event => event.event == "buy" }
+    val likeEventsRDD: RDD[LikeEvent] = eventsRDD
+      .filter { event => event.event == "like" }
       .map { event =>
         try {
-          BuyEvent(
+          LikeEvent(
             user = event.entityId,
             item = event.targetEntityId.get,
             t = event.eventTime.getMillis
           )
         } catch {
           case e: Exception =>
-            logger.error(s"Cannot convert ${event} to BuyEvent." +
+            logger.error(s"Cannot convert ${event} to LikeEvent." +
               s" Exception: ${e}.")
             throw e
         }
@@ -104,7 +104,7 @@ class DataSource(val dsp: DataSourceParams)
       users = usersRDD,
       items = itemsRDD,
       viewEvents = viewEventsRDD,
-      buyEvents = buyEventsRDD
+      likeEvents = likeEventsRDD
     )
   }
 }
@@ -115,18 +115,18 @@ case class Item(categories: Option[List[String]])
 
 case class ViewEvent(user: String, item: String, t: Long)
 
-case class BuyEvent(user: String, item: String, t: Long)
+case class LikeEvent(user: String, item: String, t: Long)
 
 class TrainingData(
   val users: RDD[(String, User)],
   val items: RDD[(String, Item)],
   val viewEvents: RDD[ViewEvent],
-  val buyEvents: RDD[BuyEvent]
+  val likeEvents: RDD[LikeEvent]
 ) extends Serializable {
   override def toString = {
     s"users: [${users.count()} (${users.take(2).toList}...)]" +
     s"items: [${items.count()} (${items.take(2).toList}...)]" +
     s"viewEvents: [${viewEvents.count()}] (${viewEvents.take(2).toList}...)" +
-    s"buyEvents: [${buyEvents.count()}] (${buyEvents.take(2).toList}...)"
+    s"likeEvents: [${likeEvents.count()}] (${likeEvents.take(2).toList}...)"
   }
 }
