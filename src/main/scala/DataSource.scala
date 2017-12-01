@@ -10,9 +10,12 @@ import org.apache.predictionio.data.store.PEventStore
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
+import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
+
 import grizzled.slf4j.Logger
 
-case class DataSourceParams(appName: String) extends Params
+case class DataSourceParams(appName: String, startTime: String) extends Params
 
 class DataSource(val dsp: DataSourceParams)
   extends PDataSource[TrainingData,
@@ -58,12 +61,16 @@ class DataSource(val dsp: DataSourceParams)
       (entityId, item)
     }.cache()
 
+    val start = dsp.startTime.split("-")
+    val startTime = new DateTime(start(0).toInt, start(1).toInt, start(2).toInt, 0, 0, DateTimeZone.UTC)
     val eventsRDD: RDD[Event] = PEventStore.find(
       appName = dsp.appName,
       entityType = Some("user"),
       eventNames = Some(List("view", "like")),
       // targetEntityType is optional field of an event.
-      targetEntityType = Some(Some("item")))(sc)
+      targetEntityType = Some(Some("item")),
+      startTime = Some(startTime)
+    )(sc)
       .cache()
 
     val viewEventsRDD: RDD[ViewEvent] = eventsRDD
