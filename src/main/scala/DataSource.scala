@@ -71,7 +71,6 @@ class DataSource(val dsp: DataSourceParams)
       targetEntityType = Some(Some("item")),
       startTime = Some(startTime)
     )(sc)
-      .cache()
 
     val viewEventsRDD: RDD[ViewEvent] = eventsRDD
       .filter { event => event.event == "view" }
@@ -89,6 +88,7 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
+      .cache()
 
     val likeEventsRDD: RDD[LikeEvent] = eventsRDD
       .filter { event => event.event == "like" }
@@ -106,6 +106,7 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
+      .cache()
 
     new TrainingData(
       users = usersRDD,
