@@ -63,6 +63,11 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
   @transient lazy val logger = Logger[this.type]
 
   def train(sc: SparkContext, data: PreparedData): ECommModel = {
+    logger.info(s"User count: ${data.users.count()} in ${data.users.getNumPartitions} partitions"
+      + s"Item count: ${data.items.count()} in ${data.items.getNumPartitions} partitions"
+      + s"View Event count: ${data.viewEvents.count()} in ${data.viewEvents.getNumPartitions} partitions"
+      + s"Like Event count: ${data.likeEvents.count()} in ${data.likeEvents.getNumPartitions} partitions")
+
     require(!data.viewEvents.take(1).isEmpty,
       s"viewEvents in PreparedData cannot be empty." +
       " Please check if DataSource generates TrainingData" +
