@@ -118,13 +118,13 @@ class DataSource(val dsp: DataSourceParams)
   }
 }
 
-case class User() extends Serializable
+case class User()
 
-case class Item(categories: Option[List[String]]) extends Serializable
+case class Item(categories: Option[List[String]])
 
-case class ViewEvent(user: String, item: String, t: Long) extends Serializable
+case class ViewEvent(user: String, item: String, t: Long)
 
-case class LikeEvent(user: String, item: String, t: Long) extends Serializable
+case class LikeEvent(user: String, item: String, t: Long)
 
 class TrainingData(
   val users: RDD[(String, User)],
