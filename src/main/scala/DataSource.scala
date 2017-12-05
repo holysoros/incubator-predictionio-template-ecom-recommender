@@ -9,6 +9,7 @@ import org.apache.predictionio.data.store.PEventStore
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
@@ -41,7 +42,7 @@ class DataSource(val dsp: DataSourceParams)
         }
       }
       (entityId, user)
-    }.cache()
+    }.persist(StorageLevel.MEMORY_ONLY_SER)
 
     // create a RDD of (entityID, Item)
     val itemsRDD: RDD[(String, Item)] = PEventStore.aggregateProperties(
@@ -59,7 +60,7 @@ class DataSource(val dsp: DataSourceParams)
         }
       }
       (entityId, item)
-    }.cache()
+    }.persist(StorageLevel.MEMORY_ONLY_SER)
 
     val start = dsp.startTime.split("-")
     val startTime = new DateTime(start(0).toInt, start(1).toInt, start(2).toInt, 0, 0, DateTimeZone.UTC)
@@ -88,7 +89,7 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY_SER)
 
     val likeEventsRDD: RDD[LikeEvent] = eventsRDD
       .filter { event => event.event == "like" }
@@ -106,7 +107,7 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY_SER)
 
     new TrainingData(
       users = usersRDD,
@@ -117,13 +118,13 @@ class DataSource(val dsp: DataSourceParams)
   }
 }
 
-case class User()
+case class User() extends Serializable
 
-case class Item(categories: Option[List[String]])
+case class Item(categories: Option[List[String]]) extends Serializable
 
-case class ViewEvent(user: String, item: String, t: Long)
+case class ViewEvent(user: String, item: String, t: Long) extends Serializable
 
-case class LikeEvent(user: String, item: String, t: Long)
+case class LikeEvent(user: String, item: String, t: Long) extends Serializable
 
 class TrainingData(
   val users: RDD[(String, User)],

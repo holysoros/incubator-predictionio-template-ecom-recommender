@@ -10,6 +10,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.mllib.recommendation.ALS
 import org.apache.spark.mllib.recommendation.{Rating => MLlibRating}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 
 import grizzled.slf4j.Logger
 
@@ -178,7 +179,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         // MLlibRating requires integer index for user and item
         MLlibRating(u, i, v)
       }
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY_SER)
 
     mllibRatings
   }
