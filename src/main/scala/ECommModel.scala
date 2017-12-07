@@ -33,10 +33,15 @@ class ECommModel(
 
 object ECommModel extends PersistentModelLoader[ECommAlgorithmParams, ECommModel] {
   def apply(id: String, params: ECommAlgorithmParams, sc: Option[SparkContext]) = {
+    val savePathPrefix = s"${params.modelSavePath}/${id}"
+    val rankPath = s"${savePathPrefix}/rank"
+    val userFeaturesPath = s"${savePathPrefix}/userFeatures"
+    val productFeaturesPath = s"${savePathPrefix}/productFeatures"
+
     new ECommModel(
-      rank = sc.get.objectFile[Int](s"${params.modelSavePath}/${id}/rank").first,
-      userFeatures = sc.get.objectFile[Map[Int, Array[Double]]](s"${params.modelSavePath}/${id}/userFeatures").first,
-      productModels = sc.get.objectFile[Map[Int, ProductModel]](s"${params.modelSavePath}/${id}/productModels").first
+      rank = sc.get.objectFile[Int](rankPath).collect().head,
+      userFeatures = sc.get.objectFile[Map[Int, Array[Double]]](userFeaturesPath).collect().head,
+      productModels = sc.get.objectFile[Map[Int, ProductModel]](productFeaturesPath).collect().head
     )
   }
 }
