@@ -13,6 +13,7 @@
       "name": "ecomm",
       "params": {
         "appName": "INVALID_APP_NAME",
+        "modelSavePath": "INVALID_PATH",
         "unseenOnly": true,
         "seenEvents": ["like", "view"],
         "similarEvents": ["view"],

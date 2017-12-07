@@ -19,6 +19,7 @@ import scala.concurrent.duration.Duration
 
 case class ECommAlgorithmParams(
   appName: String,
+  modelSavePath: String,
   unseenOnly: Boolean,
   seenEvents: List[String],
   similarEvents: List[String],
@@ -34,21 +35,6 @@ case class ProductModel(
   features: Option[Array[Double]], // features by ALS
   count: Int // popular count for default score
 )
-
-class ECommModel(
-  val rank: Int,
-  val userFeatures: Map[Int, Array[Double]],
-  val productModels: Map[Int, ProductModel]
-) extends Serializable {
-
-  override def toString = {
-    s" rank: ${rank}" +
-    s" userFeatures: [${userFeatures.size}]" +
-    s"(${userFeatures.take(2).toList}...)" +
-    s" productModels: [${productModels.size}]" +
-    s"(${productModels.take(2).toList}...)"
-  }
-}
 
 class ECommAlgorithm(val ap: ECommAlgorithmParams)
   extends P2LAlgorithm[PreparedData, ECommModel, Query, PredictedResult] {
