@@ -2,9 +2,12 @@ package org.example.ecommercerecommendation
 
 import org.apache.predictionio.controller.PersistentModel
 import org.apache.predictionio.controller.PersistentModelLoader
-
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import com.twitter.chill.ScalaKryoInstantiator
+import java.io.{FileInputStream, FileOutputStream}
+
+import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
 
 class ECommModel(
     val rank: Int,
@@ -13,13 +16,16 @@ class ECommModel(
   extends PersistentModel[ECommAlgorithmParams] {
 
   def save(id: String, params: ECommAlgorithmParams, sc: SparkContext): Boolean = {
+    val instantiator = new ScalaKryoInstantiator
+    instantiator.setRegistrationRequired(false)
 
-    sc.parallelize(Seq(rank))
-      .saveAsObjectFile(s"${params.modelSavePath}/${id}/rank")
-    sc.parallelize(Seq(userFeatures))
-      .saveAsObjectFile(s"${params.modelSavePath}/${id}/userFeatures")
-    sc.parallelize(Seq(productModels))
-      .saveAsObjectFile(s"${params.modelSavePath}/${id}/productModels")
+    val kryo = instantiator.newKryo()
+    val fos = new FileOutputStream(s"${params.modelSavePath}/${id}")
+    val output = new KryoOutput(fos, 4096)
+    kryo.writeObject(output, this)
+    output.close();
+    fos.close();
+
     true
   }
 
@@ -33,15 +39,15 @@ class ECommModel(
 
 object ECommModel extends PersistentModelLoader[ECommAlgorithmParams, ECommModel] {
   def apply(id: String, params: ECommAlgorithmParams, sc: Option[SparkContext]) = {
-    val savePathPrefix = s"${params.modelSavePath}/${id}"
-    val rankPath = s"${savePathPrefix}/rank"
-    val userFeaturesPath = s"${savePathPrefix}/userFeatures"
-    val productFeaturesPath = s"${savePathPrefix}/productFeatures"
+    val instantiator = new ScalaKryoInstantiator
+    instantiator.setRegistrationRequired(false)
 
-    new ECommModel(
-      rank = sc.get.objectFile[Int](rankPath).collect().head,
-      userFeatures = sc.get.objectFile[Map[Int, Array[Double]]](userFeaturesPath).collect().head,
-      productModels = sc.get.objectFile[Map[Int, ProductModel]](productFeaturesPath).collect().head
-    )
+    val kryo = instantiator.newKryo()
+    val fis = new FileInputStream(s"${params.modelSavePath}/${id}")
+    val input: KryoInput = new KryoInput(fis);
+    val model: ECommModel = kryo.readObject(input, classOf[ECommModel]);
+    input.close();
+
+    model
   }
 }
