@@ -42,14 +42,6 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
   @transient lazy val logger = Logger[this.type]
 
   def train(sc: SparkContext, data: PreparedData): ECommModel = {
-    require(!data.viewEvents.take(1).isEmpty,
-      s"viewEvents in PreparedData cannot be empty." +
-      " Please check if DataSource generates TrainingData" +
-      " and Preprator generates PreparedData correctly.")
-    require(!data.items.take(1).isEmpty,
-      s"items in PreparedData cannot be empty." +
-      " Please check if DataSource generates TrainingData" +
-      " and Preprator generates PreparedData correctly.")
 
     val mllibRatings: RDD[MLlibRating] = genMLlibRating(
       data = data
@@ -106,12 +98,8 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
 
     val mllibRatings = data.viewEvents
       .map { r =>
-        ((r.user, r.item), 1)
-      }
-      .reduceByKey(_ + _) // aggregate all view events of same user-item pair
-      .map { case ((u, i), v) =>
         // MLlibRating requires integer index for user and item
-        MLlibRating(u, i, v)
+        MLlibRating(r.user, r.item, 1)
       }
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
