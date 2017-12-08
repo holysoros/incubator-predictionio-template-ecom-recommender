@@ -42,6 +42,9 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
   @transient lazy val logger = Logger[this.type]
 
   def train(sc: SparkContext, data: PreparedData): ECommModel = {
+    logger.info(s"Item count: ${data.items.count()} in ${data.items.getNumPartitions} partitions"
+      + s"View Event count: ${data.viewEvents.count()} in ${data.viewEvents.getNumPartitions} partitions"
+      + s"Like Event count: ${data.likeEvents.count()} in ${data.likeEvents.getNumPartitions} partitions")
 
     val mllibRatings: RDD[MLlibRating] = genMLlibRating(
       data = data
