@@ -43,7 +43,7 @@ class DataSource(val dsp: DataSourceParams)
         }
       }
       (entityId.toInt, item)
-    }.persist(StorageLevel.MEMORY_ONLY_SER)
+    }.persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     val eventsRDD: RDD[Event] = PEventStore.find(
       appName = dsp.appName,
@@ -69,7 +69,7 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
-      .persist(StorageLevel.MEMORY_ONLY_SER)
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     val likeEventsRDD: RDD[LikeEvent] = eventsRDD
       .filter { event => event.event == "like" }
@@ -87,7 +87,7 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
-      .persist(StorageLevel.MEMORY_ONLY_SER)
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     new TrainingData(
       items = itemsRDD,

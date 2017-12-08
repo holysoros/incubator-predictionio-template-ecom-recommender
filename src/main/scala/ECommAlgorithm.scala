@@ -113,7 +113,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         // MLlibRating requires integer index for user and item
         MLlibRating(u, i, v)
       }
-      .persist(StorageLevel.MEMORY_ONLY_SER)
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     mllibRatings
   }
