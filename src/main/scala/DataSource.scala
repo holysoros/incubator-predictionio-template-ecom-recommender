@@ -16,7 +16,7 @@ import org.joda.time.DateTimeZone
 
 import grizzled.slf4j.Logger
 
-case class DataSourceParams(appName: String, startTime: String) extends Params
+case class DataSourceParams(appName: String) extends Params
 
 class DataSource(val dsp: DataSourceParams)
   extends PDataSource[TrainingData,
@@ -45,15 +45,12 @@ class DataSource(val dsp: DataSourceParams)
       (entityId.toInt, item)
     }.persist(StorageLevel.MEMORY_ONLY_SER)
 
-    val start = dsp.startTime.split("-")
-    val startTime = new DateTime(start(0).toInt, start(1).toInt, start(2).toInt, 0, 0, DateTimeZone.UTC)
     val eventsRDD: RDD[Event] = PEventStore.find(
       appName = dsp.appName,
       entityType = Some("user"),
       eventNames = Some(List("view", "like")),
       // targetEntityType is optional field of an event.
-      targetEntityType = Some(Some("item")),
-      startTime = Some(startTime)
+      targetEntityType = Some(Some("item")))
     )(sc)
 
     val viewEventsRDD: RDD[ViewEvent] = eventsRDD
