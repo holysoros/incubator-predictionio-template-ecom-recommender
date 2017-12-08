@@ -91,12 +91,12 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     */
   def genMLlibRating(data: PreparedData): RDD[MLlibRating] = {
 
-    val mllibRatings = data.viewEvents
-      .map { r =>
+    val mllibRatings = data.viewEvents.map { r =>
         // MLlibRating requires integer index for user and item
         MLlibRating(r.user, r.item, 1)
-      }
-      .persist(StorageLevel.MEMORY_ONLY_SER)
+    }
+    mllibRatings.setName("mllibRatings")
+    mllibRatings.persist(StorageLevel.MEMORY_ONLY_SER)
 
     mllibRatings
   }
