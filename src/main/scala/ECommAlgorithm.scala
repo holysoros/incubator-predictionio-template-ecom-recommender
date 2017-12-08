@@ -47,11 +47,6 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       data = data
     )
 
-    // MLLib ALS cannot handle empty training data.
-    require(!mllibRatings.take(1).isEmpty,
-      s"mllibRatings cannot be empty." +
-      " Please check if your events contain valid user and item ID.")
-
     // seed for MLlib ALS
     val seed = ap.seed.getOrElse(System.nanoTime)
 
@@ -101,7 +96,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         // MLlibRating requires integer index for user and item
         MLlibRating(r.user, r.item, 1)
       }
-      .persist(StorageLevel.MEMORY_AND_DISK_SER)
+      .persist(StorageLevel.MEMORY_ONLY_SER)
 
     mllibRatings
   }
