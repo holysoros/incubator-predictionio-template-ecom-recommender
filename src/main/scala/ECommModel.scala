@@ -20,6 +20,7 @@ class ECommModel(
     instantiator.setRegistrationRequired(false)
 
     val kryo = instantiator.newKryo()
+    kryo.setReferences(false);
     val fos = new FileOutputStream(s"${params.modelSavePath}/${id}")
     val output = new KryoOutput(fos, 4096)
     kryo.writeObject(output, this)
@@ -43,6 +44,7 @@ object ECommModel extends PersistentModelLoader[ECommAlgorithmParams, ECommModel
     instantiator.setRegistrationRequired(false)
 
     val kryo = instantiator.newKryo()
+    kryo.setReferences(false);
     val fis = new FileInputStream(s"${params.modelSavePath}/${id}")
     val input: KryoInput = new KryoInput(fis);
     val model: ECommModel = kryo.readObject(input, classOf[ECommModel]);
