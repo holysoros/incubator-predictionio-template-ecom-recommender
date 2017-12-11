@@ -44,8 +44,8 @@ class DataSource(val dsp: DataSourceParams)
       }
       (entityId.toInt, item)
     }
-    itemsRDD.setName("rawItems")
-    itemsRDD.persist(StorageLevel.MEMORY_ONLY_SER)
+    .setName("rawItems")
+    .persist(StorageLevel.MEMORY_ONLY_SER)
 
     val eventsRDD: RDD[Event] = PEventStore.find(
       appName = dsp.appName,
@@ -53,8 +53,8 @@ class DataSource(val dsp: DataSourceParams)
       eventNames = Some(List("view", "like")),
       // targetEntityType is optional field of an event.
       targetEntityType = Some(Some("item")))(sc)
-    eventsRDD.setName("rawEvents")
-    eventsRDD.persist(StorageLevel.MEMORY_ONLY_SER)
+    .setName("rawEvents")
+    .persist(StorageLevel.MEMORY_ONLY_SER)
 
     val viewEventsRDD: RDD[ViewEvent] = eventsRDD
       .filter { event => event.event == "view" }
