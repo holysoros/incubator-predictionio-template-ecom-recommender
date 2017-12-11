@@ -16,6 +16,7 @@ import grizzled.slf4j.Logger
 
 import scala.collection.mutable.PriorityQueue
 import scala.concurrent.duration.Duration
+import java.util.Calendar
 
 case class ECommAlgorithmParams(
   appName: String,
@@ -128,13 +129,16 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       set.map(x => x.toInt)
     )
 
+    logger.info(s"Before generate blacklist: ${Calendar.getInstance().getTime()}")
     val finalBlackList: Set[Int] = genBlackList(query = query)
       // convert seen Items list from String ID to interger Index
       .map(x => x.toInt)
+    logger.info(s"After generate blacklist: ${Calendar.getInstance().getTime()}")
 
     val userFeature: Option[Array[Double]] =
       userFeatures.get(query.user.toInt)
 
+    logger.info(s"Before predict compute: ${Calendar.getInstance().getTime()}")
     val topScores: Array[(Int, Double)] = if (userFeature.isDefined) {
       // the user has feature vector
       predictKnownUser(
@@ -185,6 +189,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         score = s
       )
     }
+    logger.info(s"After predict compute: ${Calendar.getInstance().getTime()}")
 
     new PredictedResult(itemScores)
   }
@@ -203,7 +208,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
           eventNames = Some(ap.seenEvents),
           targetEntityType = Some(Some("item")),
           // set time limit to avoid super long DB access
-          timeout = Duration(200, "millis")
+          timeout = Duration(2000, "millis")
         )
       } catch {
         case e: scala.concurrent.TimeoutException =>
@@ -238,7 +243,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         eventNames = Some(Seq("$set")),
         limit = Some(1),
         latest = true,
-        timeout = Duration(200, "millis")
+        timeout = Duration(2000, "millis")
       )
       if (constr.hasNext) {
         constr.next.properties.get[Set[String]]("items")
