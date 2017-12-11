@@ -53,8 +53,6 @@ class DataSource(val dsp: DataSourceParams)
       eventNames = Some(List("view", "like")),
       // targetEntityType is optional field of an event.
       targetEntityType = Some(Some("item")))(sc)
-    .setName("rawEvents")
-    .persist(StorageLevel.MEMORY_ONLY_SER)
 
     val viewEventsRDD: RDD[ViewEvent] = eventsRDD
       .filter { event => event.event == "view" }
@@ -72,6 +70,8 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
+    .setName("viewEvents")
+    .persist(StorageLevel.MEMORY_ONLY_SER)
 
     val likeEventsRDD: RDD[LikeEvent] = eventsRDD
       .filter { event => event.event == "like" }
@@ -89,6 +89,8 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
+    .setName("likeEvents")
+    .persist(StorageLevel.MEMORY_ONLY_SER)
 
     new TrainingData(
       items = itemsRDD,
