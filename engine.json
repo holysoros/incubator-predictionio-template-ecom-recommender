@@ -4,7 +4,8 @@
   "engineFactory": "org.example.ecommercerecommendation.ECommerceRecommendationEngine",
   "datasource": {
     "params" : {
-      "appName": "INVALID_APP_NAME"
+      "appName": "INVALID_APP_NAME",
+      "mapLikeScore": 4.0
     }
   },
   "algorithms": [

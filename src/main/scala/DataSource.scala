@@ -16,7 +16,7 @@ import org.joda.time.DateTimeZone
 
 import grizzled.slf4j.Logger
 
-case class DataSourceParams(appName: String) extends Params
+case class DataSourceParams(appName: String, mapLikeScore: Double) extends Params
 
 class DataSource(val dsp: DataSourceParams)
   extends PDataSource[TrainingData,
@@ -58,7 +58,7 @@ class DataSource(val dsp: DataSourceParams)
       val rating = try {
         val ratingValue: Double = event.event match {
           case "view" => 1.0
-          case "like" => 4.0 // map buy event to rating value of 4
+          case "like" => dsp.mapLikeScore // map like event to rating value
           case _ => throw new Exception(s"Unexpected event ${event} is read.")
         }
         // entityId and targetEntityId is String
