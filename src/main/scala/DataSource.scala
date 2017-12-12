@@ -54,23 +54,26 @@ class DataSource(val dsp: DataSourceParams)
       // targetEntityType is optional field of an event.
       targetEntityType = Some(Some("item")))(sc)
 
-    val viewEventsRDD: RDD[ViewEvent] = eventsRDD
-      .filter { event => event.event == "view" }
-      .map { event =>
-        try {
-          ViewEvent(
-            user = event.entityId.toInt,
-            item = event.targetEntityId.get.toInt,
-            t = event.eventTime.getMillis
-          )
-        } catch {
-          case e: Exception =>
-            logger.error(s"Cannot convert ${event} to ViewEvent." +
-              s" Exception: ${e}.")
-            throw e
+    val ratingsRDD: RDD[Rating] = eventsRDD.map { event =>
+      val rating = try {
+        val ratingValue: Double = event.event match {
+          case "view" => 1.0
+          case "like" => 4.0 // map buy event to rating value of 4
+          case _ => throw new Exception(s"Unexpected event ${event} is read.")
+        }
+        // entityId and targetEntityId is String
+        Rating(event.entityId.toInt,
+          event.targetEntityId.get.toInt,
+          ratingValue)
+      } catch {
+        case e: Exception => {
+          logger.error(s"Cannot convert ${event} to Rating. Exception: ${e}.")
+          throw e
         }
       }
-    .setName("viewEvents")
+      rating
+    }
+    .setName("ratings")
     .persist(StorageLevel.MEMORY_ONLY_SER)
 
     val likeEventsRDD: RDD[LikeEvent] = eventsRDD
@@ -89,12 +92,12 @@ class DataSource(val dsp: DataSourceParams)
             throw e
         }
       }
-    .setName("likeEvents")
+    .setName("likes")
     .persist(StorageLevel.MEMORY_ONLY_SER)
 
     new TrainingData(
       items = itemsRDD,
-      viewEvents = viewEventsRDD,
+      ratings = ratingsRDD,
       likeEvents = likeEventsRDD
     )
   }
@@ -104,18 +107,22 @@ case class User()
 
 case class Item(categories: Option[List[String]])
 
-case class ViewEvent(user: Int, item: Int, t: Long)
+case class Rating(
+  user: Int,
+  item: Int,
+  rating: Double
+)
 
 case class LikeEvent(user: Int, item: Int, t: Long)
 
 class TrainingData(
   val items: RDD[(Int, Item)],
-  val viewEvents: RDD[ViewEvent],
+  val ratings: RDD[Rating],
   val likeEvents: RDD[LikeEvent]
 ) extends Serializable {
   override def toString = {
     s"items: [${items.count()} (${items.take(2).toList}...)]" +
-    s"viewEvents: [${viewEvents.count()}] (${viewEvents.take(2).toList}...)" +
+    s"ratings: [${ratings.count()}] (${ratings.take(2).toList}...)" +
     s"likeEvents: [${likeEvents.count()}] (${likeEvents.take(2).toList}...)"
   }
 }

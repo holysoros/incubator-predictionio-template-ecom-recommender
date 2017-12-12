@@ -44,7 +44,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
 
   def train(sc: SparkContext, data: PreparedData): ECommModel = {
     logger.info(s"Item count: ${data.items.count()} in ${data.items.getNumPartitions} partitions"
-      + s"View Event count: ${data.viewEvents.count()} in ${data.viewEvents.getNumPartitions} partitions"
+      + s"Rating count: ${data.ratings.count()} in ${data.ratings.getNumPartitions} partitions"
       + s"Like Event count: ${data.likeEvents.count()} in ${data.likeEvents.getNumPartitions} partitions")
 
     val mllibRatings: RDD[MLlibRating] = genMLlibRating(
@@ -95,9 +95,9 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     */
   def genMLlibRating(data: PreparedData): RDD[MLlibRating] = {
 
-    val mllibRatings = data.viewEvents.map { r =>
+    val mllibRatings = data.ratings.map { r =>
         // MLlibRating requires integer index for user and item
-        MLlibRating(r.user, r.item, 1)
+        MLlibRating(r.user, r.item, r.rating)
     }
     .setName("mllibRatings")
     .persist(StorageLevel.MEMORY_ONLY_SER)
