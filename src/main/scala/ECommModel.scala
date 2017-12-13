@@ -10,46 +10,29 @@ import java.io.{FileInputStream, FileOutputStream}
 import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
 
 class ECommModel(
-    val rank: Int,
-    val userFeatures: Map[Int, Array[Double]],
-    val productModels: Map[Int, ProductModel])
+    val userFeatures: RDD[(Int, Array[Double])],
+    val productModels: RDD[(Int, ProductModel)])
   extends PersistentModel[ECommAlgorithmParams] {
 
   def save(id: String, params: ECommAlgorithmParams, sc: SparkContext): Boolean = {
-    val instantiator = new ScalaKryoInstantiator
-    instantiator.setRegistrationRequired(false)
-
-    val kryo = instantiator.newKryo()
-    kryo.setReferences(false);
-    val fos = new FileOutputStream(s"${params.modelSavePath}/${id}")
-    val output = new KryoOutput(fos, 4096)
-    kryo.writeObject(output, this)
-    output.close();
-    fos.close();
+    userFeatures.saveAsObjectFile(s"${params.modelSavePath}/${id}/userFeatures")
+    productModels.saveAsObjectFile(s"${params.modelSavePath}/${id}/productModels")
 
     true
   }
 
   override def toString = {
-    s"userFeatures: [${userFeatures.size}]" +
+    s"userFeatures: [${userFeatures.count()}]" +
     s"(${userFeatures.take(2).toList}...)" +
-    s" productModels: [${productModels.size}]" +
+    s" productModels: [${productModels.count()}]" +
     s"(${productModels.take(2).toList}...)"
   }
 }
 
 object ECommModel extends PersistentModelLoader[ECommAlgorithmParams, ECommModel] {
   def apply(id: String, params: ECommAlgorithmParams, sc: Option[SparkContext]) = {
-    val instantiator = new ScalaKryoInstantiator
-    instantiator.setRegistrationRequired(false)
-
-    val kryo = instantiator.newKryo()
-    kryo.setReferences(false);
-    val fis = new FileInputStream(s"${params.modelSavePath}/${id}")
-    val input: KryoInput = new KryoInput(fis);
-    val model: ECommModel = kryo.readObject(input, classOf[ECommModel]);
-    input.close();
-
-    model
+    val userFeatures: RDD[(Int, Array[Double])] = sc.get.objectFile(s"${params.modelSavePath}/${id}/userFeatures")
+    val productModels: RDD[(Int, ProductModel)] = sc.get.objectFile(s"${params.modelSavePath}/${id}/productModels")
+    new ECommModel(userFeatures, productModels)
   }
 }

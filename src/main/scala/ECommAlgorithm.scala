@@ -11,6 +11,7 @@ import org.apache.spark.mllib.recommendation.ALS
 import org.apache.spark.mllib.recommendation.{Rating => MLlibRating}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
+import com.github.fommil.netlib.BLAS.{getInstance => blas}
 
 import grizzled.slf4j.Logger
 
@@ -64,27 +65,31 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       alpha = 1.0,
       seed = seed)
 
-    val userFeatures = m.userFeatures.collectAsMap.toMap
+    val userFeatures = m.userFeatures
 
     // join item with the trained productFeatures
-    val productFeatures: Map[Int, (Item, Option[Array[Double]])] =
-      data.items.leftOuterJoin(m.productFeatures).collectAsMap.toMap
+    val productFeatures: RDD[(Int, (Item, Option[Array[Double]]))] =
+      data.items.leftOuterJoin(m.productFeatures)
 
     val popularCount = trainDefault(data = data)
 
-    val productModels: Map[Int, ProductModel] = productFeatures
+    val productModels: RDD[(Int, ProductModel)] = productFeatures
       .map { case (index, (item, features)) =>
+        val count = try {
+          popularCount.lookup(index).head
+        } catch {
+          case e: NoSuchElementException => 0
+        }
         val pm = ProductModel(
           item = item,
           features = features,
           // NOTE: use getOrElse because popularCount may not contain all items.
-          count = popularCount.getOrElse(index, 0)
+          count = count
         )
         (index, pm)
       }
 
     new ECommModel(
-      rank = m.rank,
       userFeatures = userFeatures,
       productModels = productModels
     )
@@ -109,14 +114,14 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     * You may customize this function if use different events or
     * need different ways to count "popular" score or return default score for item.
     */
-  def trainDefault(data: PreparedData): Map[Int, Int] = {
+  def trainDefault(data: PreparedData): RDD[(Int, Int)] = {
     // count number of likes
     // (item index, count)
     val likeCountsRDD: RDD[(Int, Int)] = data.likeEvents
       .map { r => (r.item, 1) } // key is item
       .reduceByKey{ case (a, b) => a + b } // count number of items occurrence
 
-    likeCountsRDD.collectAsMap.toMap
+    likeCountsRDD
   }
 
   def predict(model: ECommModel, query: Query): PredictedResult = {
@@ -135,14 +140,13 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       .map(x => x.toInt)
     logger.info(s"After generate blacklist: ${Calendar.getInstance().getTime()}")
 
-    val userFeature: Option[Array[Double]] =
-      userFeatures.get(query.user.toInt)
+    val userFeature: Seq[Array[Double]] = userFeatures.lookup(query.user.toInt)
 
     logger.info(s"Before predict compute: ${Calendar.getInstance().getTime()}")
-    val topScores: Array[(Int, Double)] = if (userFeature.isDefined) {
+    val topScores: Array[(Int, Double)] = if (userFeature.nonEmpty) {
       // the user has feature vector
       predictKnownUser(
-        userFeature = userFeature.get,
+        userFeature = userFeature.head,
         productModels = productModels,
         query = query,
         whiteList = whiteList,
@@ -160,7 +164,12 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       val recentFeatures: Vector[Array[Double]] = recentList.toVector
         // productModels may not contain the requested item
         .map { i =>
-          productModels.get(i).flatMap { pm => pm.features }
+          val productModel = productModels.lookup(i)
+          if (productModel.nonEmpty) {
+            productModel.head.features
+          } else {
+            None
+          }
         }.flatten
 
       if (recentFeatures.isEmpty) {
@@ -308,12 +317,12 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
   /** Prediction for user with known feature vector */
   def predictKnownUser(
     userFeature: Array[Double],
-    productModels: Map[Int, ProductModel],
+    productModels: RDD[(Int, ProductModel)],
     query: Query,
     whiteList: Option[Set[Int]],
     blackList: Set[Int]
   ): Array[(Int, Double)] = {
-    val indexScores: Map[Int, Double] = productModels.par // convert to parallel collection
+    val scored: RDD[(Int, Double)] = productModels
       .filter { case (i, pm) =>
         pm.features.isDefined &&
         isCandidateItem(
@@ -326,27 +335,24 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       }
       .map { case (i, pm) =>
         // NOTE: features must be defined, so can call .get
-        val s = dotProduct(userFeature, pm.features.get)
+        val productFeatures = pm.features.get
+        val s = blas.ddot(productFeatures.length, userFeature, 1, productFeatures, 1)
         // may customize here to further adjust score
         (i, s)
       }
       .filter(_._2 > 0) // only keep items with score > 0
-      .seq // convert back to sequential collection
 
-    val ord = Ordering.by[(Int, Double), Double](_._2).reverse
-    val topScores = getTopN(indexScores, query.num)(ord).toArray
-
-    topScores
+    scored.top(query.num)(Ordering.by(_._2))
   }
 
   /** Default prediction when know nothing about the user */
   def predictDefault(
-    productModels: Map[Int, ProductModel],
+    productModels: RDD[(Int, ProductModel)],
     query: Query,
     whiteList: Option[Set[Int]],
     blackList: Set[Int]
   ): Array[(Int, Double)] = {
-    val indexScores: Map[Int, Double] = productModels.par // convert back to sequential collection
+    val scored: RDD[(Int, Double)] = productModels
       .filter { case (i, pm) =>
         isCandidateItem(
           i = i,
@@ -360,23 +366,19 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         // may customize here to further adjust score
         (i, pm.count.toDouble)
       }
-      .seq
 
-    val ord = Ordering.by[(Int, Double), Double](_._2).reverse
-    val topScores = getTopN(indexScores, query.num)(ord).toArray
-
-    topScores
+    scored.top(query.num)(Ordering.by(_._2))
   }
 
   /** Return top similar items based on items user recently has action on */
   def predictSimilar(
     recentFeatures: Vector[Array[Double]],
-    productModels: Map[Int, ProductModel],
+    productModels: RDD[(Int, ProductModel)],
     query: Query,
     whiteList: Option[Set[Int]],
     blackList: Set[Int]
   ): Array[(Int, Double)] = {
-    val indexScores: Map[Int, Double] = productModels.par // convert to parallel collection
+    val scored: RDD[(Int, Double)] = productModels
       .filter { case (i, pm) =>
         pm.features.isDefined &&
         isCandidateItem(
@@ -396,12 +398,8 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         (i, s)
       }
       .filter(_._2 > 0) // keep items with score > 0
-      .seq // convert back to sequential collection
 
-    val ord = Ordering.by[(Int, Double), Double](_._2).reverse
-    val topScores = getTopN(indexScores, query.num)(ord).toArray
-
-    topScores
+    scored.top(query.num)(Ordering.by(_._2))
   }
 
   private
