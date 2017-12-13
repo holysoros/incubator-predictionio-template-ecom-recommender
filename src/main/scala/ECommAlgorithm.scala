@@ -75,16 +75,11 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
 
     val productModels: RDD[(Int, ProductModel)] = productFeatures
       .map { case (index, (item, features)) =>
-        val count = try {
-          popularCount.lookup(index).head
-        } catch {
-          case e: NoSuchElementException => 0
-        }
         val pm = ProductModel(
           item = item,
           features = features,
           // NOTE: use getOrElse because popularCount may not contain all items.
-          count = count
+          count = popularCount.getOrElse(index, 0)
         )
         (index, pm)
       }
@@ -114,14 +109,14 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     * You may customize this function if use different events or
     * need different ways to count "popular" score or return default score for item.
     */
-  def trainDefault(data: PreparedData): RDD[(Int, Int)] = {
+  def trainDefault(data: PreparedData): Map[Int, Int] = {
     // count number of likes
     // (item index, count)
     val likeCountsRDD: RDD[(Int, Int)] = data.likeEvents
       .map { r => (r.item, 1) } // key is item
       .reduceByKey{ case (a, b) => a + b } // count number of items occurrence
 
-    likeCountsRDD
+    likeCountsRDD.collectAsMap.toMap
   }
 
   def predict(model: ECommModel, query: Query): PredictedResult = {
