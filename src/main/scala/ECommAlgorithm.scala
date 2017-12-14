@@ -120,6 +120,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
   }
 
   def predict(model: ECommModel, query: Query): PredictedResult = {
+    logger.debug("Start to predict")
 
     val userFeatures = model.userFeatures
     val productModels = model.productModels
@@ -129,15 +130,15 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
       set.map(x => x.toInt)
     )
 
-    logger.info(s"Before generate blacklist: ${Calendar.getInstance().getTime()}")
+    logger.info(s"Start to generate blacklist")
     val finalBlackList: Set[Int] = genBlackList(query = query)
       // convert seen Items list from String ID to interger Index
       .map(x => x.toInt)
-    logger.info(s"After generate blacklist: ${Calendar.getInstance().getTime()}")
+    logger.info(s"Finish to generate blacklist")
 
     val userFeature: Seq[Array[Double]] = userFeatures.lookup(query.user.toInt)
 
-    logger.info(s"Before predict compute: ${Calendar.getInstance().getTime()}")
+    logger.debug(s"Before predict compute")
     val topScores: Array[(Int, Double)] = if (userFeature.nonEmpty) {
       // the user has feature vector
       predictKnownUser(
@@ -176,6 +177,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
           blackList = finalBlackList
         )
       } else {
+        logger.info(s"Predict based on user's recent features.")
         predictSimilar(
           recentFeatures = recentFeatures,
           productModels = productModels,
@@ -193,7 +195,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         score = s
       )
     }
-    logger.info(s"After predict compute: ${Calendar.getInstance().getTime()}")
+    logger.info(s"After predict compute")
 
     new PredictedResult(itemScores)
   }
@@ -237,6 +239,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
     } else {
       Set[String]()
     }
+    logger.debug(s"Size of user seen items: ${seenItems.size}")
 
     // get the latest constraint unavailableItems $set event
     val unavailableItems: Set[String] = try {
@@ -263,6 +266,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         logger.error(s"Error when read set unavailableItems event: ${e}")
         throw e
     }
+    logger.debug(s"Size of unavailable items: ${unavailableItems.size}")
 
     // combine query's blackList,seenItems and unavailableItems
     // into final blackList.
@@ -283,7 +287,7 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         limit = Some(10),
         latest = true,
         // set time limit to avoid super long DB access
-        timeout = Duration(200, "millis")
+        timeout = Duration(2000, "millis")
       )
     } catch {
       case e: scala.concurrent.TimeoutException =>
@@ -305,6 +309,8 @@ class ECommAlgorithm(val ap: ECommAlgorithmParams)
         }
       }
     }.toSet
+
+    logger.debug(s"Found user recent events: ${recentItems.size}")
 
     recentItems
   }
