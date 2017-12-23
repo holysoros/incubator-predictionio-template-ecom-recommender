@@ -35,10 +35,15 @@ object ECommModel extends PersistentModelLoader[ECommAlgorithmParams, ECommModel
 
   def apply(id: String, params: ECommAlgorithmParams, sc: Option[SparkContext]) = {
     logger.info("Start to load models")
+    val products: Array[Int] = sc.get.textFile(s"${params.modelSavePath}/products").map(_.toInt).collect()
     val userFeatures: RDD[(Int, Array[Double])] = sc.get.objectFile(s"${params.modelSavePath}/${id}/userFeatures").cache()
-    val productModels: RDD[(Int, ProductModel)] = sc.get.objectFile(s"${params.modelSavePath}/${id}/productModels").cache()
+    val productModels: RDD[(Int, ProductModel)] = sc.get.objectFile(s"${params.modelSavePath}/${id}/productModels")
+    val selectedProducts: RDD[(Int, ProductModel)] =  productModels.filter { case (i, pm) =>
+        products.contains(i)
+      }
+      .cache()
     logger.info("Success to load models")
-    logger.info(s"Size of userFeatures: ${userFeatures.count()}; size of productModels: ${productModels.count()}")
-    new ECommModel(userFeatures, productModels)
+    logger.info(s"Size of userFeatures: ${userFeatures.count()}; size of productModels: ${selectedProducts.count()}")
+    new ECommModel(userFeatures, selectedProducts)
   }
 }
