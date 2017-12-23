@@ -1,6 +1,7 @@
 package org.example.ecommercerecommendation
 
 import grizzled.slf4j.Logger
+import org.apache.spark.HashPartitioner
 import org.apache.predictionio.controller.PersistentModel
 import org.apache.predictionio.controller.PersistentModelLoader
 import org.apache.spark.SparkContext
@@ -35,15 +36,23 @@ object ECommModel extends PersistentModelLoader[ECommAlgorithmParams, ECommModel
 
   def apply(id: String, params: ECommAlgorithmParams, sc: Option[SparkContext]) = {
     logger.info("Start to load models")
-    val products: Array[Int] = sc.get.textFile(s"${params.modelSavePath}/products").map(_.toInt).collect()
-    val userFeatures: RDD[(Int, Array[Double])] = sc.get.objectFile(s"${params.modelSavePath}/${id}/userFeatures").cache()
+    val lines = sc.get.textFile(s"${params.modelSavePath}/products")
+    val products: RDD[(Int, Int)] = lines.map(s => (s.toInt, 1))
+    val userFeatures: RDD[(Int, Array[Double])] = sc.get.objectFile(s"${params.modelSavePath}/${id}/userFeatures")
+    val newUserFeatures: RDD[(Int, Array[Double])] = userFeatures
+      .partitionBy(new HashPartitioner(32))
+      .cache()
     val productModels: RDD[(Int, ProductModel)] = sc.get.objectFile(s"${params.modelSavePath}/${id}/productModels")
-    val selectedProducts: RDD[(Int, ProductModel)] =  productModels.filter { case (i, pm) =>
-        products.contains(i)
+    val selectedProducts: RDD[(Int, (Int, ProductModel))] =  products.join(productModels)
+
+    val selectedProductModels: RDD[(Int, ProductModel)] = selectedProducts
+      .map { case (i, (_, pm)) =>
+        (i, pm)
       }
+      .partitionBy(new HashPartitioner(32))
       .cache()
     logger.info("Success to load models")
-    logger.info(s"Size of userFeatures: ${userFeatures.count()}; size of productModels: ${selectedProducts.count()}")
-    new ECommModel(userFeatures, selectedProducts)
+    logger.info(s"Size of userFeatures: ${newUserFeatures.count()}; size of productModels: ${selectedProducts.count()}")
+    new ECommModel(newUserFeatures, selectedProductModels)
   }
 }
